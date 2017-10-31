@@ -4,7 +4,7 @@
 # Useful in HP-UX  environment
 
 # Author: Gianluca Lodo
-# Revised by: Marco PM
+# Revised by: Marco Ponchia - PM
 
 $host=`hostname`;
 chomp($host);
@@ -65,11 +65,11 @@ foreach (`$command | egrep -v "Filesystem|\/proc"`)
                         $TEXT=" ---> OK - FS WITH SECOND THRESHOLD OF ".$s_threshold_alarm."%";
                 }
                 elsif (($CAPACITY >= $f_threshold_alarm) || (($MOUNTED =~ m/^($fs_sec_threshold)$/) && ($CAPACITY >= $s_threshold_alarm))) {
-                        $ERRORE="$ERRORE\n$CAPACITY% $MOUNTED";
+                        $ERROR="$ERRORE\n$CAPACITY% $MOUNTED";
                         $TEXT=" \033[1m---> WARNING! EXCEEDS THRESHOLD OF ".$f_threshold_alarm."%!\033[0m";
                 }
                 printf("%-35s %12s %12s %12s %11s%%  %-40.40s %s\n",$MOUNTED,$BLOCK,$USED,$AVAIBLE,$CAPACITY,$FS,$TEXT);
         }
 }
-printf("\n\nERRORI_CONTROLLO:\n %s",$ERRORE);
+printf("\n\nERRORS:\n %s",$ERROR);
 printf("\n\n\n");
