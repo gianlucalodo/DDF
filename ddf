@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+
+# Simple script that print df output in human readable format and sorted.
+# Useful in HP-UX  environment
+
+# Author: Gianluca Lodo
+# Revised by: Marco PM
+
+$host=`hostname`;
+chomp($host);
+$title="Filesystem control on $host"; 
+$titlength = map $_, $title =~ /(.)/gs;
+$workdir=`dirname $0`;
+chomp($workdir);
+$conffile="$workdir/ddf.conf";
+
+### Read configuration from ddf.conf
+open(CONF_FILE,'<',$conffile) or die "Can't open config file"; 
+@buf=<CONF_FILE>; 
+close CONF_FILE;
+$know_fs=(split("=", (grep(/^know_fs/, @buf))[0]))[1];
+chomp($know_fs);
+$fs_sec_threshold=(split("=", (grep(/^fs_sec_threshold/, @buf))[0]))[1];
+chomp($fs_sec_threshold);
+$f_threshold_alarm=(split("=", (grep(/^f_threshold_alarm/, @buf))[0]))[1];
+chomp($f_threshold_alarm);
+$s_threshold_alarm=(split("=", (grep(/^s_threshold_alarm/, @buf))[0]))[1];
+chomp($s_threshold_alarm);
+
+
+$ERROR="";
+system("clear");
+printf("\n\033[1m" . uc($title) . "\n" . "-" x $titlength . "\033[0m\n\n");
+
+printf("%-35s: %s\n", "KNOWS FILESYSTEM (NOT MONITORED)", $know_fs);
+printf("%-35s: %s\n", "FILESYSTEM WITH THRESHOLD AT ".$s_threshold_alarm."%", $fs_sec_threshold);
+printf("%-35s: %s\n\n", "ALARM THRESHOLD OTHER FS", $f_threshold_alarm."%");
+$know_fs=~s/\//\\\//g;
+$fs_sec_threshold=~s/\//\\\//g;
+
+printf("\n\033[1m%-35s %12s %12s %12s %12s  %-40s\033[0m", "Mount point", "Size", "Used", "Available", "Use %", "Filesystem");
+printf("\n\033[1m%-35s %12s %12s %12s %12s  %-40s\033[0m\n", "-----------", "----", "----", "---------", "-----", "----------");
+
+$ostype=`uname -s`;
+if ($ostype =~ m/SunOS/) { $command='df -k | sort -k5'; }
+if ($ostype =~ m/Linux/) { $command='df -kP | sort -g -k5'; }
+if ($ostype =~ m/HP-UX/) { $command='df -kP | sort -k5'; }
+if ($ostype =~ m/OSF1/) { $command='df -kP | sort -k5'; }
+
+foreach (`$command | egrep -v "Filesystem|\/proc"`)
+{
+        if ( /(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)%\s+(\S+)/ )
+        {
+                $FS="$1";
+                $BLOCK=sprintf("%.1fG", "$2"/1024/1024);
+                $USED=sprintf("%.1fG", "$3"/1024/1024);
+                $AVAIBLE=sprintf("%.1fG", "$4"/1024/1024);
+                $CAPACITY=$5;
+                $MOUNTED="$6";
+                $TEXT="";
+                if (($CAPACITY >= $f_threshold_alarm) && ($MOUNTED =~ m/^($know_fs)$/)) {
+                        $TEXT=" ---> OK - KNOW FS AT ".$CAPACITY."%"; 
+                }
+                elsif (($CAPACITY >= $f_threshold_alarm) && ($MOUNTED =~ m/^($fs_sec_threshold)$/) && ($CAPACITY < $s_threshold_alarm)) {
+                        $TEXT=" ---> OK - FS WITH SECOND THRESHOLD OF ".$s_threshold_alarm."%";
+                }
+                elsif (($CAPACITY >= $f_threshold_alarm) || (($MOUNTED =~ m/^($fs_sec_threshold)$/) && ($CAPACITY >= $s_threshold_alarm))) {
+                        $ERRORE="$ERRORE\n$CAPACITY% $MOUNTED";
+                        $TEXT=" \033[1m---> WARNING! EXCEEDS THRESHOLD OF ".$f_threshold_alarm."%!\033[0m";
+                }
+                printf("%-35s %12s %12s %12s %11s%%  %-40.40s %s\n",$MOUNTED,$BLOCK,$USED,$AVAIBLE,$CAPACITY,$FS,$TEXT);
+        }
+}
+printf("\n\nERRORI_CONTROLLO:\n %s",$ERRORE);
+printf("\n\n\n");
